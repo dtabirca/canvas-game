@@ -1,0 +1,251 @@
+<html>
+<head>
+<style>
+	html,body{
+		width:100%;
+		height:100%;
+		margin:0px;
+		font-size:12px;
+		font-family: "Comic Sans MS", cursive, sans-serif;
+		font-f/amily: "Courier New", Courier, monospace;
+	}
+	#gamebg{
+		background-color: #000000;
+	}
+	#score{
+		position: absolute;
+		bottom: 2px;
+		right: 2px;
+		z-index: 10;
+	}
+	#text{
+		padding:10px; position: absolute; bottom: 0; right: 200; z-index: 2;
+	}
+	#lost button, #lost div, #score, #won button, #won div, #score{
+		font-size: 30px;
+		font-weight: 900;
+		cursor: hand;
+	}
+	#lost, #won{
+		position:absolute;
+		background-color: gray;
+		opacity: 0.8;
+		z-index: 100;
+		width: 100%;
+		height: 100%;
+		margin:0;
+		padding: 0;
+		display: none;
+	}
+	#lost div, #won div{
+	  position: fixed;
+	  top: 40%;
+	  left: 40%;
+	}
+</style>
+</head>
+
+<body>
+
+<div style="position: relative;">
+	<canvas id="gamebg" style="position: absolute; left: 0; top: 0; z-index: 0;"></canvas>
+	<canvas id="game" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
+</div>
+<div id="text">
+	Use arrows to move &#x21E7; &#x21E8; &#x21E9; &#x21E6; | 
+	Change face with 0-7 |
+	Press SPACE to restart
+</div>
+<div id="score">&#x2623; <span id="life">1000</span></div>
+<div id="lost"><div>No luck!<br><button onClick="reset()">Try again?</button></div></div>
+<div id="won"><div>You got the motherfucker!<br><button onClick="reset()">Play again?</button></div></div>
+
+<script>
+var w = 100, h = 100;
+var W = 150, H = 150;
+var w_ = 300, h_ = 221;
+if (window.innerWidth < 800){
+	w = 70;
+	h = 70;
+	W = 80;
+	H = 80;
+	w_=150;
+	h_=110;
+}
+var traps = ['images/garlic.png', 'images/mona.png'];
+var gamebg    = document.getElementById('gamebg');
+var ctxbg = gamebg.getContext('2d');
+var game    = document.getElementById('game');
+var ctxgame = game.getContext('2d');
+var runner = new Image();
+var face = 'images/virus1.png';
+var life = 1000;
+var slow = 0;
+var bump = false;
+var step = 20;
+var	x = oldx = 0;
+var	y = oldy = window.innerHeight-h;
+var rand = 6;
+var areas = [];
+var pills = [];
+var finish = 'images/run3.png';
+
+function init(){
+
+	ctxbg.canvas.width  = window.innerWidth;
+	ctxbg.canvas.height = window.innerHeight;
+	ctxbg.fillStyle = '#ffffff';
+	ctxbg.fillRect(0,0,ctxbg.canvas.width,ctxbg.canvas.height);
+	for (var j = 0; j < traps.length; j++) {
+		
+		var pill = new Image();
+		pill.id = j;
+		pills.push(pill);
+		pill.onerror=function(){alert("image load failed");}
+		pill.onload = function(){
+			for (var i = rand - 1; i >= 0; i--) {
+				pillx = Math.floor(Math.random() * (window.innerWidth-W) + 1);
+				pilly = Math.floor(Math.random() * (window.innerHeight-H) + 1);
+				if (pillx < w && pilly > window.innerHeight-H-h) pillx = pillx + w;
+				if (pillx > window.innerHeight-h_ && pilly < h_) pilly = pilly + h_;
+				areas.push([pillx,pilly]);
+				callback(pills[this.id], pillx, pilly, W, H);
+			}
+		}
+		pill.src = traps[j];
+	}
+
+	var home = new Image();
+	home.src = finish;
+	home.onload = function(){
+		ctxbg.drawImage(home, window.innerWidth-w_, 0, w_, h_);		
+	}
+
+	ctxgame.canvas.width  = window.innerWidth;
+	ctxgame.canvas.height = window.innerHeight;
+	ctxgame.fillStyle = 'transparent';
+	ctxgame.fillRect(0,0,ctxgame.canvas.width,ctxgame.canvas.height);
+	runner.src = face;
+	runner.onerror = function(){
+		runner.src = face;
+	}
+	runner.onload = function(){
+	    ctxgame.drawImage(runner, x, y, w, h);
+	}
+}
+function callback(pill, pillx, pilly, W, H){
+	ctxbg.drawImage(pill, pillx, pilly, W, H);			
+}
+init();
+
+
+function move(){
+	ctxgame.clearRect(oldx, oldy, w, h);
+	ctxgame.drawImage(runner, x, y, w, h);
+	console.log(x+'/'+y)
+}
+function collision(){
+	bump = false;
+	for (var a=0; a<areas.length; a++){
+		if ( ( (x+w-step) > areas[a][0] && (x+step) < (areas[a][0]+W) ) &&
+		 	 ( (y+h-step) > areas[a][1] && (y+step) < (areas[a][1]+H) ) ) {
+			bump = true;
+			slow = setInterval(function(){
+				if (bump){
+					ctxgame.clearRect(x, y, w, h);
+					runner.src = 'images/blank.png';
+					drop();
+					setTimeout(function(){
+						ctxgame.clearRect(x, y, w, h);
+						runner.src = face;}, 200);
+				}
+				else{
+					clearInterval(slow);
+					slow=0;
+				}
+			},500);
+			break;
+		}
+	}
+	if ( ( (x+w-step) > window.innerWidth-w_ && (x+step) < window.innerWidth ) &&
+		 ( (y+h-step) > 0 && (y+step) < h_ ) ) {
+		console.log('end');
+		document.getElementById('won').style.display = 'block';
+	}
+}
+function reset(){
+	clearInterval(slow);
+	slow=0;
+	life=1000;
+	x=0;
+	bump=false;
+	y=window.innerHeight-h;
+	areas=[];
+	document.getElementById('life').innerHTML=life;
+	document.getElementById('lost').style.display = 'none';
+	document.getElementById('won').style.display = 'none';
+	init();
+}
+function drop(){
+	life-=20;
+	document.getElementById('life').innerHTML=life;
+	if (life<=0){
+		life = 0;
+		document.getElementById('life').innerHTML=0;
+		document.getElementById('lost').style.display = 'block';
+		bump=false;
+	}
+}
+document.addEventListener('keydown', function(e){
+	oldx = x;
+	oldy = y;
+	console.log(e.code);
+	switch(e.code){
+		case 'ArrowUp':
+			y-=step
+			if (y<-w/2){
+				y = window.innerHeight-h/2;
+			}
+			move();
+			collision();
+			break;
+		case 'ArrowDown':
+			y+=step;
+			if (y>window.innerHeight-h/2){
+				y = -h/2;
+			}
+			move();
+			collision();
+		break;
+		case 'ArrowLeft':
+			x-=step;
+			if (x<-w/2){
+				x = window.innerWidth-w/2
+			}
+			move();
+			collision();
+		break;
+		case 'ArrowRight':
+			x+=step;
+			if (x>window.innerWidth-w/2){
+				x = -w/2;
+			}
+			move();
+			collision();
+		break;
+		case 'Space':
+			reset();
+		break;		
+		default:
+		break;
+
+	}
+	if (Number.isInteger(parseInt(event.key)) && event.key>=0 && event.key<=7 ){
+		ctxgame.clearRect(oldx, oldy, w, h);
+		face = runner.src = 'images/virus' + event.key + '.png';
+	}
+});
+</script>
+
+</body>
+</html>
